@@ -1,7 +1,7 @@
 {
   "name": "@lazily-hub/lazily-react",
   "version": "0.1.0",
-  "description": "React/Preact bindings for @lazily-hub/lazily-js: drive React state from lazily reactive Cell/Slot/Memo/Signal handles via useSyncExternalStore. Glitch-free, equality-guarded re-renders.",
+  "description": "React/Preact bindings for @lazily-hub/lazily-js: drive React state from lazily reactive Cell/Slot/Memo handles via useSyncExternalStore. Glitch-free, equality-guarded re-renders.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -34,17 +34,21 @@
     "test": "node --test test/*.test.js"
   },
   "peerDependencies": {
-    "@lazily-hub/lazily-js": "^0.23.0",
+    "@lazily-hub/lazily-js": "^0.24.0",
     "react": ">=18.0.0"
   },
   "peerDependenciesMeta": {
     "react": { "optional": true }
   },
   "devDependencies": {
-    "@lazily-hub/lazily-js": "file:../lazily-js",
+    "@lazily-hub/lazily-js": "^0.24.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-test-renderer": "^18.3.1"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
   },
   "keywords": [
     "react",
