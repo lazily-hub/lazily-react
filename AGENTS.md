@@ -1,7 +1,17 @@
 # lazily-react
 
 React / Preact bindings for `@lazily-hub/lazily-js`. A thin `useSyncExternalStore`
-adapter over lazily's reactive graph (Cell/Slot/Memo/Effect).
+adapter over the lazily Cell kernel (`SourceCell` / `FormulaCell` / `Effect`,
+#lzcellkernel).
+
+## lazily-js dependency
+
+The `@lazily-hub/lazily-js` devDependency is `file:../lazily-js` — tests run
+against the **local** sibling build (currently 0.25.0, the Cell-kernel release),
+which is UNPUBLISHED. The `peerDependencies` range is `^0.25.0` (the first
+kernel version). Do not "fix" the devDependency to a published range: the kernel
+surface (`source`/`formula`/`SourceCell`/`FormulaCell`/`.drive()`) is not on npm
+yet. `npm install` re-links the symlink.
 
 ## Commit & Push
 
@@ -16,29 +26,33 @@ asked" for this repo.
 - `src/bridge.js` — framework-agnostic adapter: `readHandle` + `createLazilySubscription`.
   The core IP. Unit-tested without React (`test/bridge.js`).
 - `src/hooks.js` — `LazilyProvider`, `useLazilyContext`, `useLazily`, `useCell`,
-  `useSlot`, `useReactiveMemo`. Imports from `react` (Preact users alias
+  `useFormula`. Imports from `react` (Preact users alias
   `react` → `preact/compat`).
 - `test/hooks.test.js` — React integration via `react-test-renderer` (no DOM).
 
-## Hook → lazily primitive mapping
+## Hook → Cell kernel mapping
 
-| hook              | lazily primitive        | lazy? | equality guard? |
-|-------------------|-------------------------|-------|-----------------|
-| `useCell`         | `ctx.cell`              | src   | yes (on write)  |
-| `useSlot`         | `ctx.slot` / `computed` | yes   | **no**          |
-| `useReactiveMemo` | `ctx.memo`              | yes   | yes             |
+| hook              | Cell kernel construction     | lazy? | equality guard? |
+|-------------------|------------------------------|-------|-----------------|
+| `useCell`         | `ctx.source` (`SourceCell`)  | src   | yes (on write)  |
+| `useFormula`      | `ctx.formula` (`FormulaCell`)| yes   | yes             |
 
-There is intentionally **no `useSignal`**. `Signal` is retired as a lazily
-primitive (`Signal ≡ Slot.eager`), and a React binding gains nothing from
-eagerness: React only renders on invalidation, and `getSnapshot` reads the
-(lazily-recomputed-on-read) slot, so it always sees the fresh value with no
-stale-frame risk. The meaningful axis for derived hooks is the **equality guard**
-above. (`useLazily` still reads externally-created `SignalHandle`s — lazily-react
-just doesn't create them.)
+**`useSlot` is deleted** (design §9.4 step 6, zero call sites): the unguarded
+`slot`/`computed` survives in lazily-js only as a deprecated alias, and the guard
+is the efficient default, so the one derived hook is the guarded `useFormula`
+(renamed from the former `useReactiveMemo`).
+
+There is intentionally **no `useSignal`**. The eager construction is now a driven
+formula (`ctx.formula(f).drive()`), and a React binding gains nothing from driving
+it: React only renders on invalidation, and `getSnapshot` reads the
+(lazily-recomputed-on-read) formula, so it always sees the fresh value with no
+stale-frame risk. (`useLazily` still reads externally-created `SignalHandle`s —
+handed out by the thread-safe / async contexts — lazily-react just doesn't create
+them.)
 
 ## Node lifetime
 
-`useCell` disposes its cell and `useSlot`/`useReactiveMemo` dispose their slot on
+`useCell` disposes its `SourceCell` and `useFormula` disposes its `FormulaCell` on
 real unmount and on deps-change, via `ctx.disposeCell`/`ctx.disposeSlot`
 (`src/lazily-js/src/reactive.js`). Disposal is **strict-mode-safe**: it is
 deferred one microtask and cancelled if React 18 dev's simulated remount

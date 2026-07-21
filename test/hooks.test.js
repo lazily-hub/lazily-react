@@ -1,6 +1,6 @@
 // React integration tests via react-test-renderer (no DOM). Proves the hooks
 // drive React renders under the lazily reactive contract: initial value, mutation
-// re-render, memo suppression of structurally-equal recomputes, slot propagation,
+// re-render, guarded-formula suppression of structurally-equal recomputes,
 // strict-mode-safe disposal on unmount, and unsubscribe safety after unmount.
 //
 // External-store notifications (lazily effects flush synchronously on write) are
@@ -18,8 +18,7 @@ import { Context } from "@lazily-hub/lazily-js/reactive";
 import {
   LazilyProvider,
   useCell,
-  useSlot,
-  useReactiveMemo,
+  useFormula,
   useLazily,
 } from "../src/hooks.js";
 
@@ -79,11 +78,11 @@ test("useCell: functional updater reads the previous value", async () => {
   assert.equal(textOf(r), "17");
 });
 
-test("useReactiveMemo: recomputes and re-renders when upstream changes", async () => {
+test("useFormula: recomputes and re-renders when upstream changes", async () => {
   const ctx = new Context();
-  const a = ctx.cell(2);
+  const a = ctx.source(2);
   function C() {
-    const doubled = useReactiveMemo(() => ctx.getCell(a) * 2, []);
+    const doubled = useFormula(() => ctx.getCell(a) * 2, []);
     return h("p", null, String(doubled));
   }
   const r = renderWith(ctx, h(C));
@@ -93,15 +92,15 @@ test("useReactiveMemo: recomputes and re-renders when upstream changes", async (
   assert.equal(textOf(r), "6");
 });
 
-test("useReactiveMemo: structurally-equal recompute suppresses the re-render", async () => {
+test("useFormula: structurally-equal recompute suppresses the re-render", async () => {
   const ctx = new Context();
-  const a = ctx.cell(1);
+  const a = ctx.source(1);
   let renders = 0;
   function C() {
     renders++;
     // Fresh object each recompute; memo's deep-equality guard suppresses at the
     // lazily level, so onChange is never called and React never re-checks.
-    const parity = useReactiveMemo(() => ({ n: ctx.getCell(a) % 2 }), []);
+    const parity = useFormula(() => ({ n: ctx.getCell(a) % 2 }), []);
     return h("p", null, String(parity.n));
   }
   const r = renderWith(ctx, h(C));
@@ -113,37 +112,18 @@ test("useReactiveMemo: structurally-equal recompute suppresses the re-render", a
   assert.equal(textOf(r), "1");
 });
 
-test("useSlot: re-renders on every upstream invalidation (no equality guard)", async () => {
-  const ctx = new Context();
-  const a = ctx.cell(1);
-  let renders = 0;
-  function C() {
-    renders++;
-    // Fresh object each recompute; slot has no guard, so lazily propagates and
-    // React sees a new reference (Object.is differs) → re-render. This is the
-    // observable difference from useReactiveMemo at the React level.
-    const parity = useSlot(() => ({ n: ctx.getCell(a) % 2 }), []);
-    return h("p", null, String(parity.n));
-  }
-  const r = renderWith(ctx, h(C));
-  const initialRenders = renders;
-  assert.equal(textOf(r), "1");
-
-  await flush(() => ctx.setCell(a, 3)); // { n: 1 } → new { n: 1 }, new reference
-  assert.ok(renders > initialRenders, "useSlot re-renders: fresh object ref each invalidation");
-  assert.equal(textOf(r), "1");
-});
-
-test("useSignal: REMOVED — eager derived dropped (Signal retired; not in this binding)", () => {
-  // useSignal was removed: Signal is retired as a lazily primitive (Signal ≡ Slot.eager),
-  // and a React binding gains nothing from eagerness (getSnapshot reads the lazy slot on
-  // render, so no stale-frame risk). See README "Why no useSignal".
+test("useSlot / useSignal: REMOVED under the Cell kernel", () => {
+  // useSlot deleted (design §9.4 step 6, zero call sites): the one derived hook is
+  // the guarded `useFormula`. useSignal never existed: the eager construction is a
+  // driven formula (`ctx.formula(f).drive()`), and a React binding gains nothing
+  // from driving it (getSnapshot reads the lazily-recomputed formula on render, so
+  // no stale-frame risk). See README "No useSlot / useSignal".
   assert.ok(true);
 });
 
 test("useLazily: subscribes to an externally-created cell handle", async () => {
   const ctx = new Context();
-  const shared = ctx.cell("x");
+  const shared = ctx.source("x");
   function C() {
     const v = useLazily(shared);
     return h("p", null, v);
@@ -157,9 +137,9 @@ test("useLazily: subscribes to an externally-created cell handle", async () => {
 
 test("unmount safety: external mutation after unmount does not throw", async () => {
   const ctx = new Context();
-  const a = ctx.cell(1);
+  const a = ctx.source(1);
   function C() {
-    const v = useReactiveMemo(() => ctx.getCell(a) + 1, []);
+    const v = useFormula(() => ctx.getCell(a) + 1, []);
     return h("p", null, String(v));
   }
   const r = renderWith(ctx, h(C));
@@ -174,9 +154,9 @@ test("unmount safety: external mutation after unmount does not throw", async () 
 
 test("dispose on unmount: derived slot edges are torn down (microtask-deferred)", async () => {
   const ctx = new Context({ instrument: true });
-  const a = ctx.cell(1);
+  const a = ctx.source(1);
   function C() {
-    const v = useReactiveMemo(() => ctx.getCell(a) + 1, []);
+    const v = useFormula(() => ctx.getCell(a) + 1, []);
     return h("p", null, String(v));
   }
   const r = renderWith(ctx, h(C));
@@ -194,10 +174,10 @@ test("dispose on unmount: derived slot edges are torn down (microtask-deferred)"
 test("dispose on deps-change: the stale slot is disposed when deps move on", async () => {
   const ctx = new Context({ instrument: true });
   // Deps come from a parent cell so we can force a re-render with new deps.
-  const key = ctx.cell("a");
+  const key = ctx.source("a");
   function C() {
     const k = useLazily(key);
-    const v = useReactiveMemo(() => k + "!", [k]); // recreated when k changes
+    const v = useFormula(() => k + "!", [k]); // recreated when k changes
     return h("p", null, v);
   }
   const r = renderWith(ctx, h(C));
@@ -213,9 +193,9 @@ test("dispose on deps-change: the stale slot is disposed when deps move on", asy
 
 test("StrictMode: hooks survive the dev double-invoke mount without premature disposal", async () => {
   const ctx = new Context();
-  const a = ctx.cell(1);
+  const a = ctx.source(1);
   function C() {
-    const v = useReactiveMemo(() => ctx.getCell(a) + 1, []);
+    const v = useFormula(() => ctx.getCell(a) + 1, []);
     return h("p", null, String(v));
   }
   // StrictMode double-invokes render + effects (setup → cleanup → setup) in dev.

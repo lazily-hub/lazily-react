@@ -1,13 +1,13 @@
 # @lazily-hub/lazily-react
 
 React / Preact bindings for [`@lazily-hub/lazily-js`](../lazily-js) — drive React
-state from lazily reactive `Cell` / `Slot` / `Memo` / `Signal` handles via
+state from the lazily Cell kernel (`SourceCell` / `FormulaCell`) via
 `useSyncExternalStore`. Glitch-free, equality-guarded re-renders.
 
 The whole binding is a thin adapter: a lazily `effect` reads the handle
 (registering the dependency edge) and calls React's re-render callback on
 invalidation; `useSyncExternalStore` reads the cached value. lazily's pull-based
-glitch-free slots and its deep-equality guards carry straight through to React.
+glitch-free formulas and its deep-equality guards carry straight through to React.
 
 ## Install
 
@@ -28,13 +28,13 @@ convention). `useSyncExternalStore` is exported by both `react` (≥18) and
 
 ```jsx
 import { createContext } from "@lazily-hub/lazily-js/reactive";
-import { LazilyProvider, useCell, useReactiveMemo } from "@lazily-hub/lazily-react";
+import { LazilyProvider, useCell, useFormula } from "@lazily-hub/lazily-react";
 
 const ctx = createContext();
 
 function Counter() {
   const [count, setCount] = useCell(0);
-  const doubled = useReactiveMemo(() => count * 2, [count]);
+  const doubled = useFormula(() => count * 2, [count]);
   return (
     <button onClick={() => setCount((c) => c + 1)}>
       {count} (doubled: {doubled})
@@ -49,50 +49,51 @@ export function App() {
 
 ## Hooks
 
-| hook              | lazily primitive        | lazy? | equality guard? |
-|-------------------|-------------------------|-------|-----------------|
-| `useCell(initial)`| `ctx.cell`              | src   | yes (on write)  |
-| `useSlot(fn, deps)`| `ctx.slot`/`computed`  | yes   | **no**          |
-| `useReactiveMemo(fn, deps)` | `ctx.memo`     | yes   | yes             |
-| `useLazily(handle)`| any (read-only)        | —     | from handle     |
+| hook              | Cell kernel construction | lazy? | equality guard? |
+|-------------------|--------------------------|-------|-----------------|
+| `useCell(initial)`| `ctx.source` (`SourceCell`) | src | yes (on write)  |
+| `useFormula(fn, deps)` | `ctx.formula` (`FormulaCell`) | yes | yes        |
+| `useLazily(handle)`| any (read-only)         | —     | from handle     |
 
-There is intentionally **no `useSignal`**. `Signal` is retired as a lazily
-primitive (`Signal ≡ Slot.eager`), and a React binding gains nothing from
-eagerness — React only renders on invalidation, and `getSnapshot` reads the
-(lazily-recomputed-on-read) slot, so it always sees the fresh value with no
-stale-frame risk. The meaningful axis for derived hooks is the equality guard
-above. (`useLazily` still *reads* externally-created `SignalHandle`s — lazily-react
-just doesn't create them.)
+There is intentionally **no `useSlot` and no `useSignal`**:
 
-- **`useCell`** — component-local mutable source, returns `[value, setValue]` like
-  `useState`. `setValue` accepts a value or `(prev) => next`. The cell is disposed
-  on real unmount.
-- **`useReactiveMemo`** — the default for derived state. Equal recomputes are
-  suppressed at the lazily level (the subscribe effect never runs), so React
-  never re-renders on a no-op recompute.
-- **`useSlot`** — escape hatch: **no** equality guard. Use it when `defaultEqual`
-  is more expensive than the render, or when every invalidation must propagate.
+- **`useSlot` is deleted** (Cell kernel, #lzcellkernel — design §9.4 step 6, zero
+  call sites). The old unguarded `slot`/`computed` is retained in lazily-js only as
+  a deprecated alias; the guard is the efficient default (equal recomputes do not
+  propagate), so the one derived hook is the guarded `useFormula`.
+- **`useSignal` never existed.** The eager construction is now a *driven formula*
+  (`ctx.formula(f).drive()`), and a React binding gains nothing from driving it —
+  React only renders on invalidation, and `getSnapshot` reads the
+  (lazily-recomputed-on-read) formula, so it always sees the fresh value with no
+  stale-frame risk. (`useLazily` still *reads* externally-created `SignalHandle`s —
+  handed out by the thread-safe / async contexts — lazily-react just doesn't
+  create them.)
 
-### `useSlot` vs `useReactiveMemo` at the React level
+- **`useCell`** — component-local mutable source (a `SourceCell` via `ctx.source`),
+  returns `[value, setValue]` like `useState`. `setValue` accepts a value or
+  `(prev) => next`. The cell is disposed on real unmount.
+- **`useFormula`** — the default (and only) derived hook: a guarded `FormulaCell`.
+  Equal recomputes are suppressed at the lazily level (the subscribe effect never
+  runs), so React never re-renders on a no-op recompute.
+
+### The equality guard at the React level
 
 `useSyncExternalStore` uses `Object.is` on the snapshot. With a primitive
-recompute that comes back equal, **both** hooks skip the re-render. The
-observable difference appears when the compute returns a **fresh object** each
-invalidation:
+recompute that comes back equal, `useFormula` skips the re-render for free. The
+guard earns its keep when the compute returns a **fresh object** each invalidation:
 
-- `useReactiveMemo(() => ({ n: a % 2 }))`: lazily's deep-equal guard suppresses
-  propagation → no re-render.
-- `useSlot(() => ({ n: a % 2 }))`: no guard → new reference → React re-renders.
+- `useFormula(() => ({ n: a % 2 }))`: lazily's deep-equal guard suppresses
+  propagation → no re-render, even though the reference changed.
 
 (See `test/hooks.test.js`.)
 
 ### Sharing handles across components
 
-`useCell` creates a component-local cell. To share state, create the cell
+`useCell` creates a component-local `SourceCell`. To share state, create the cell
 externally and read it with `useLazily`; write it via `ctx.setCell`:
 
 ```js
-const shared = ctx.cell(0);
+const shared = ctx.source(0);
 // in any component: const v = useLazily(shared);
 // anywhere: ctx.setCell(shared, v + 1);
 ```
@@ -120,7 +121,7 @@ The framework-agnostic adapter lives in `src/bridge.js` (`readHandle`,
 
 ## Node lifetime
 
-`useCell` disposes its cell and `useSlot`/`useReactiveMemo` dispose their slot on
+`useCell` disposes its `SourceCell` and `useFormula` disposes its `FormulaCell` on
 real unmount and on deps-change, via `ctx.disposeCell`/`ctx.disposeSlot` in
 `src/lazily-js/src/reactive.js`. Disposal is **strict-mode-safe**: it is deferred
 one microtask and cancelled if React 18 dev's simulated remount

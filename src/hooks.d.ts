@@ -1,5 +1,5 @@
 import type { ReactNode, ReactElement } from "react";
-import type { Context, CellHandle, SlotHandle, SignalHandle } from "@lazily-hub/lazily-js/reactive";
+import type { Context, SourceCell, FormulaCell, SignalHandle } from "@lazily-hub/lazily-js/reactive";
 import type { LazilyHandle } from "./bridge.js";
 
 /** Provide a lazily reactive `Context` to the tree. */
@@ -18,25 +18,21 @@ export declare function useLazilyContext(): Context;
 export declare function useLazily<T>(handle: LazilyHandle<T>): T;
 
 /**
- * Component-local mutable source, like `useState`. Returns `[value, setValue]`.
- * `setValue` accepts a value or an updater `(prev) => next`. The cell is disposed
- * on real unmount (strict-mode-safe).
+ * Component-local mutable source (a lazily `SourceCell`), like `useState`.
+ * Returns `[value, setValue]`. `setValue` accepts a value or an updater
+ * `(prev) => next`. The cell is disposed on real unmount (strict-mode-safe).
  */
 export declare function useCell<T>(
   initial: T | (() => T),
 ): [T, (next: T | ((prev: T) => T)) => void];
 
 /**
- * Lazy derived, NO equality guard. Re-renders on every upstream invalidation.
- * Escape hatch for when `defaultEqual` is more expensive than the render.
+ * Lazy derived value backed by a guarded `FormulaCell` (`ctx.formula`). Equal
+ * recomputes suppress the re-render — the default (and only) derived hook under
+ * the Cell kernel. Replaces the old `useReactiveMemo`; the unguarded `useSlot` is
+ * deleted.
  */
-export declare function useSlot<T>(compute: () => T, deps?: unknown[]): T;
-
-/**
- * Lazy derived, WITH equality guard. Equal recomputes suppress the re-render.
- * Default choice for derived state.
- */
-export declare function useReactiveMemo<T>(compute: () => T, deps?: unknown[]): T;
+export declare function useFormula<T>(compute: () => T, deps?: unknown[]): T;
 
 // Re-export lazily handle types for consumers.
-export type { CellHandle, SlotHandle, SignalHandle } from "@lazily-hub/lazily-js/reactive";
+export type { SourceCell, FormulaCell, SignalHandle } from "@lazily-hub/lazily-js/reactive";

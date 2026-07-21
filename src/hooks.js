@@ -5,12 +5,14 @@
 // `react` (>=18) and `preact/compat` (>=10.16). We destructure from the default
 // import to avoid CJS named-export interop differences across bundlers/runtimes.
 //
-// Eager derived values are intentionally NOT exposed here: `Signal` is retired as
-// a lazily primitive (`Signal ≡ Slot.eager`), and a React binding gains nothing
-// from eagerness — React only renders on invalidation, and `getSnapshot` reads the
-// (lazily-recomputed-on-read) slot, so it always sees the fresh value with no
-// stale-frame risk. The meaningful axis for derived hooks is the equality guard:
-// `useReactiveMemo` (memo, suppresses equal recomputes) vs `useSlot` (no guard).
+// The Cell kernel (#lzcellkernel) is the surface consumed here: `ctx.source` for a
+// SourceCell, `ctx.formula` for a guarded FormulaCell. Eager derived values are
+// intentionally NOT exposed: the eager construction is now a driven formula
+// (`ctx.formula(f).drive()`), and a React binding gains nothing from driving it —
+// React only renders on invalidation, and `getSnapshot` reads the
+// (lazily-recomputed-on-read) formula, so it always sees the fresh value with no
+// stale-frame risk. The one derived hook is therefore the guarded `useFormula`;
+// the old unguarded `useSlot` is deleted (design §9.4 step 6, zero call sites).
 
 import React from "react";
 import { createLazilySubscription, readHandle } from "./bridge.js";
@@ -120,7 +122,8 @@ export function useLazily(handle) {
 
 /**
  * Component-local mutable source. Like `useState`, but the value lives in a
- * lazily cell bound to the owning `Context`. Returns `[value, setValue]`.
+ * lazily `SourceCell` (`ctx.source`) bound to the owning `Context`. Returns
+ * `[value, setValue]`.
  *
  * `setValue` accepts a value or an updater `(prev) => next`. The cell is disposed
  * on real unmount (strict-mode-safe) via `ctx.disposeCell`.
@@ -134,7 +137,7 @@ export function useCell(initial) {
   const ref = useRef(null);
   if (ref.current === null) {
     ref.current =
-      typeof initial === "function" ? ctx.cell(initial()) : ctx.cell(initial);
+      typeof initial === "function" ? ctx.source(initial()) : ctx.source(initial);
   }
   const handle = ref.current;
   useStableDispose(ctx, handle, (c, h) => c.disposeCell(h));
@@ -155,79 +158,33 @@ export function useCell(initial) {
 const EMPTY = Object.freeze([]);
 
 /**
- * @template T
- * @param {import("@lazily-hub/lazily-js/reactive").Context} ctx
- * @param {() => T} compute
- * @returns {import("@lazily-hub/lazily-js/reactive").SlotHandle<T>}
- * @internal */
-function makeSlot(ctx, compute) {
-  return ctx.slot(compute);
-}
-
-/**
- * @template T
- * @param {import("@lazily-hub/lazily-js/reactive").Context} ctx
- * @param {() => T} compute
- * @returns {import("@lazily-hub/lazily-js/reactive").SlotHandle<T>}
- * @internal */
-function makeMemo(ctx, compute) {
-  return ctx.memo(compute);
-}
-
-/**
- * Core for the lazy derived hooks. Creates a lazily slot via `factory` and
- * re-subscribes React to it. When `deps` change, a new slot is created and the
- * stale one is disposed (strict-mode-safe). The latest `compute` closure is always
- * used via a ref, so a re-render with unchanged deps still sees fresh captured
- * values on the next invalidation.
+ * Lazy derived value backed by a guarded `FormulaCell` (`ctx.formula`). Equal
+ * recomputes suppress the re-render (the subscribe effect never runs), so this is
+ * the default — and only — choice for derived state under the Cell kernel. The
+ * former unguarded `useSlot` is deleted (design §9.4 step 6).
+ *
+ * Creates a lazily formula and re-subscribes React to it. When `deps` change a new
+ * formula is created and the stale one is disposed (strict-mode-safe). The latest
+ * `compute` closure is always used via a ref, so a re-render with unchanged deps
+ * still sees fresh captured values on the next invalidation.
  *
  * @template T
- * @param {(ctx: import("@lazily-hub/lazily-js/reactive").Context, compute: () => T) => import("@lazily-hub/lazily-js/reactive").SlotHandle<T>} factory
  * @param {() => T} compute
- * @param {unknown[] | undefined} deps
+ * @param {unknown[]} [deps] dep list; the formula is recreated when these change.
  * @returns {T}
- * @internal */
-function useDerived(factory, compute, deps) {
+ */
+export function useFormula(compute, deps) {
   const ctx = useLazilyContext();
   const handleRef = useRef(null);
   const computeRef = useRef(compute);
-  computeRef.current = compute; // always latest closure; slot recomputes only on invalidation
+  computeRef.current = compute; // always latest closure; formula recomputes only on invalidation
   const depsArr = deps === undefined ? EMPTY : deps;
   const depsRef = useRef(depsArr);
   if (handleRef.current === null || !shallowEqualDeps(depsRef.current, depsArr)) {
-    handleRef.current = factory(ctx, () => computeRef.current());
+    handleRef.current = ctx.formula(() => computeRef.current());
     depsRef.current = depsArr;
   }
   const handle = handleRef.current;
   useStableDispose(ctx, handle, (c, h) => c.disposeSlot(h));
   return useLazilySubscription(ctx, handle);
-}
-
-/**
- * Lazy derived value, **no** equality guard. Re-renders on every upstream
- * invalidation even when the recomputed value is structurally equal. Escape
- * hatch for when `defaultEqual` is more expensive than the render, or when every
- * invalidation must propagate.
- *
- * @template T
- * @param {() => T} compute
- * @param {unknown[]} [deps] dep list; the slot is recreated when these change.
- * @returns {T}
- */
-export function useSlot(compute, deps) {
-  return useDerived(makeSlot, compute, deps);
-}
-
-/**
- * Lazy derived value, **with** an equality guard (`ctx.memo`). Equal recomputes
- * suppress the re-render. This is the default choice for derived state; prefer it
- * over `useSlot` unless the equality check itself is the bottleneck.
- *
- * @template T
- * @param {() => T} compute
- * @param {unknown[]} [deps]
- * @returns {T}
- */
-export function useReactiveMemo(compute, deps) {
-  return useDerived(makeMemo, compute, deps);
 }
