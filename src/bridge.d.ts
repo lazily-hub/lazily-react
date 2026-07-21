@@ -1,14 +1,14 @@
 import type {
   Context,
-  SourceCell,
-  FormulaCell,
+  Source,
+  Computed,
   SignalHandle,
 } from "@lazily-hub/lazily-js/reactive";
 
-/** Any lazily source/derived handle (Cell kernel). */
+/** Any lazily source/derived handle (Cell kernel v2). */
 export type LazilyHandle<T = unknown> =
-  | SourceCell<T>
-  | FormulaCell<T>
+  | Source<T>
+  | Computed<T>
   | SignalHandle<T>;
 
 /**
@@ -23,8 +23,9 @@ export declare function readHandle<T>(
 /**
  * Subscribe an `onChange` callback to a lazily handle. Returns an unsubscribe
  * that disposes the underlying effect. Equality-guard semantics come from the
- * handle (a guarded `formula` suppresses equal recomputes; the deprecated
- * unguarded `slot`/`computed` always propagate).
+ * handle: under the Cell kernel v2 every cell is guarded, so a `Computed` whose
+ * recompute yields an equal value — like a `Source` written an equal value —
+ * suppresses the notification.
  */
 export declare function createLazilySubscription(
   ctx: Context,

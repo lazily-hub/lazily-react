@@ -1,8 +1,9 @@
 // Bridge contract tests — framework-agnostic. These pin the lazily →
-// useSyncExternalStore contract without React, exercising the equality-guard
-// distinction between a guarded `formula` (suppresses equal recomputes) and the
-// deprecated unguarded `slot` (always propagates), plus a driven formula (the
-// eager construction that retired `Signal`). Each test mirrors a lazily property.
+// useSyncExternalStore contract without React, exercising the Cell kernel v2
+// equality guard: a guarded `computed` suppresses equal recomputes (and so does
+// the deprecated `slot` alias, which is now the same guarded computed), plus an
+// eager computed (the construction that retired `Signal`). Each test mirrors a
+// lazily property.
 //
 // `createLazilySubscription` registers the dependency edge on its initial forced
 // run but does NOT call onChange then (store contract: subscribe notifies only
@@ -14,7 +15,7 @@ import test from "node:test";
 import { Context } from "@lazily-hub/lazily-js/reactive";
 import { createLazilySubscription, readHandle } from "../src/bridge.js";
 
-test("subscribe: onChange fires exactly once per dependent cell write", () => {
+test("subscribe: onChange fires exactly once per dependent source write", () => {
   const ctx = new Context();
   const a = ctx.source(1);
   const calls = [];
@@ -30,13 +31,13 @@ test("subscribe: onChange fires exactly once per dependent cell write", () => {
   assert.equal(readHandle(ctx, a), 3);
 });
 
-test("subscribe: equal cell write does not fire (cell deep-PartialEq guard)", () => {
+test("subscribe: equal source write does not fire (source deep-PartialEq guard)", () => {
   const ctx = new Context();
   const a = ctx.source(1);
   let calls = 0;
   createLazilySubscription(ctx, a, () => calls++);
 
-  ctx.setCell(a, 1); // equal — no-op at the cell
+  ctx.setCell(a, 1); // equal — no-op at the source
   assert.equal(calls, 0);
 });
 
@@ -47,37 +48,38 @@ test("subscribe: structurally-equal OBJECT write is a no-op (deep equality)", ()
   let calls = 0;
   createLazilySubscription(ctx, a, () => calls++);
 
-  ctx.setCell(a, { x: 1 }); // new ref but structurally equal → cell guard no-ops
+  ctx.setCell(a, { x: 1 }); // new ref but structurally equal → source guard no-ops
   assert.equal(calls, 0);
   assert.equal(readHandle(ctx, a), before, "same reference preserved");
 });
 
-test("subscribe: guarded formula suppresses onChange on structurally-equal recompute; unguarded slot propagates", () => {
+test("subscribe: guarded computed suppresses onChange on structurally-equal recompute (slot alias is now the same guarded computed)", () => {
   const ctx = new Context();
   const a = ctx.source(1);
-  // Fresh object each recompute. The guarded `formula` sees { n: 1 } === { n: 1 }
-  // (deep-equality) and suppresses; the deprecated unguarded `slot` has no guard,
-  // so it always propagates.
-  const m = ctx.formula(() => ({ n: ctx.getCell(a) % 2 }));
+  // Fresh object each recompute. Under the Cell kernel v2 every computed is
+  // guarded, so { n: 1 } === { n: 1 } (deep-equality) suppresses the notification.
+  // The deprecated `slot` alias is now `computed`, so it suppresses identically —
+  // there is no unguarded derived construction anymore.
+  const m = ctx.computed(() => ({ n: ctx.getCell(a) % 2 }));
   const s = ctx.slot(() => ({ n: ctx.getCell(a) % 2 }));
 
   readHandle(ctx, m); // materialize
   readHandle(ctx, s);
 
-  let formulaCalls = 0;
+  let computedCalls = 0;
   let slotCalls = 0;
-  createLazilySubscription(ctx, m, () => formulaCalls++);
+  createLazilySubscription(ctx, m, () => computedCalls++);
   createLazilySubscription(ctx, s, () => slotCalls++);
 
   ctx.setCell(a, 3); // 3 % 2 === 1, structurally equal to prior { n: 1 }
-  assert.equal(formulaCalls, 0, "guarded formula must suppress onChange on equal recompute");
-  assert.equal(slotCalls, 1, "unguarded slot propagates on every invalidation");
+  assert.equal(computedCalls, 0, "guarded computed suppresses onChange on equal recompute");
+  assert.equal(slotCalls, 0, "deprecated slot alias is now the same guarded computed");
 });
 
-test("subscribe: guarded formula fires when recompute yields a structurally-different value", () => {
+test("subscribe: guarded computed fires when recompute yields a structurally-different value", () => {
   const ctx = new Context();
   const a = ctx.source(1);
-  const m = ctx.formula(() => ({ n: ctx.getCell(a) % 2 }));
+  const m = ctx.computed(() => ({ n: ctx.getCell(a) % 2 }));
   readHandle(ctx, m);
   let calls = 0;
   createLazilySubscription(ctx, m, () => calls++);
@@ -87,27 +89,27 @@ test("subscribe: guarded formula fires when recompute yields a structurally-diff
   assert.equal(readHandle(ctx, m).n, 0);
 });
 
-test("subscribe: works for a driven formula (eager construction, retires Signal)", () => {
+test("subscribe: works for an eager computed (eager construction, retires Signal)", () => {
   const ctx = new Context();
   const a = ctx.source(10);
-  // `.drive()` attaches a puller Effect that keeps the formula materialized — the
-  // eager construction that replaced `ctx.signal`. It is still a FormulaCell, read
+  // `.eager()` attaches a puller Effect that keeps the computed materialized — the
+  // eager construction that replaced `ctx.signal`. It is still a Computed, read
   // through the `ctx.get` branch of readHandle.
-  const driven = ctx.formula(() => ctx.getCell(a) * 10).drive();
-  assert.equal(readHandle(ctx, driven), 100, "driven formula materializes immediately");
+  const eager = ctx.computed(() => ctx.getCell(a) * 10).eager();
+  assert.equal(readHandle(ctx, eager), 100, "eager computed materializes immediately");
 
   let calls = 0;
-  createLazilySubscription(ctx, driven, () => calls++);
+  createLazilySubscription(ctx, eager, () => calls++);
   ctx.setCell(a, 3);
   assert.equal(calls, 1);
-  assert.equal(readHandle(ctx, driven), 30);
+  assert.equal(readHandle(ctx, eager), 30);
 });
 
 test("subscribe: batched writes coalesce into one notification", () => {
   const ctx = new Context();
   const a = ctx.source(1);
   const b = ctx.source(10);
-  const sum = ctx.formula(() => ctx.getCell(a) + ctx.getCell(b));
+  const sum = ctx.computed(() => ctx.getCell(a) + ctx.getCell(b));
   readHandle(ctx, sum);
   let calls = 0;
   createLazilySubscription(ctx, sum, () => calls++);

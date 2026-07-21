@@ -1,6 +1,6 @@
 // React integration tests via react-test-renderer (no DOM). Proves the hooks
 // drive React renders under the lazily reactive contract: initial value, mutation
-// re-render, guarded-formula suppression of structurally-equal recomputes,
+// re-render, guarded-computed suppression of structurally-equal recomputes,
 // strict-mode-safe disposal on unmount, and unsubscribe safety after unmount.
 //
 // External-store notifications (lazily effects flush synchronously on write) are
@@ -17,8 +17,8 @@ import TestRenderer from "react-test-renderer";
 import { Context } from "@lazily-hub/lazily-js/reactive";
 import {
   LazilyProvider,
-  useCell,
-  useFormula,
+  useSource,
+  useComputed,
   useLazily,
 } from "../src/hooks.js";
 
@@ -48,11 +48,11 @@ function drainMicrotask() {
 
 // -----------------------------------------------------------------------------
 
-test("useCell: initial value renders, setter drives a re-render", async () => {
+test("useSource: initial value renders, setter drives a re-render", async () => {
   const ctx = new Context();
   let setter;
   function C() {
-    const [n, setN] = useCell(1);
+    const [n, setN] = useSource(1);
     setter = setN;
     return h("p", null, String(n));
   }
@@ -63,11 +63,11 @@ test("useCell: initial value renders, setter drives a re-render", async () => {
   assert.equal(textOf(r), "5");
 });
 
-test("useCell: functional updater reads the previous value", async () => {
+test("useSource: functional updater reads the previous value", async () => {
   const ctx = new Context();
   let setter;
   function C() {
-    const [n, setN] = useCell(10);
+    const [n, setN] = useSource(10);
     setter = setN;
     return h("p", null, String(n));
   }
@@ -78,11 +78,11 @@ test("useCell: functional updater reads the previous value", async () => {
   assert.equal(textOf(r), "17");
 });
 
-test("useFormula: recomputes and re-renders when upstream changes", async () => {
+test("useComputed: recomputes and re-renders when upstream changes", async () => {
   const ctx = new Context();
   const a = ctx.source(2);
   function C() {
-    const doubled = useFormula(() => ctx.getCell(a) * 2, []);
+    const doubled = useComputed(() => ctx.getCell(a) * 2, []);
     return h("p", null, String(doubled));
   }
   const r = renderWith(ctx, h(C));
@@ -92,15 +92,16 @@ test("useFormula: recomputes and re-renders when upstream changes", async () => 
   assert.equal(textOf(r), "6");
 });
 
-test("useFormula: structurally-equal recompute suppresses the re-render", async () => {
+test("useComputed: structurally-equal recompute suppresses the re-render", async () => {
   const ctx = new Context();
   const a = ctx.source(1);
   let renders = 0;
   function C() {
     renders++;
-    // Fresh object each recompute; memo's deep-equality guard suppresses at the
-    // lazily level, so onChange is never called and React never re-checks.
-    const parity = useFormula(() => ({ n: ctx.getCell(a) % 2 }), []);
+    // Fresh object each recompute; the guarded computed's deep-equality guard
+    // suppresses at the lazily level, so onChange is never called and React never
+    // re-checks.
+    const parity = useComputed(() => ({ n: ctx.getCell(a) % 2 }), []);
     return h("p", null, String(parity.n));
   }
   const r = renderWith(ctx, h(C));
@@ -108,16 +109,16 @@ test("useFormula: structurally-equal recompute suppresses the re-render", async 
   assert.equal(textOf(r), "1");
 
   await flush(() => ctx.setCell(a, 3)); // { n: 1 } → { n: 1 }, equal
-  assert.equal(renders, initialRenders, "no re-render: memo guard suppressed propagation");
+  assert.equal(renders, initialRenders, "no re-render: computed guard suppressed propagation");
   assert.equal(textOf(r), "1");
 });
 
 test("useSlot / useSignal: REMOVED under the Cell kernel", () => {
   // useSlot deleted (design §9.4 step 6, zero call sites): the one derived hook is
-  // the guarded `useFormula`. useSignal never existed: the eager construction is a
-  // driven formula (`ctx.formula(f).drive()`), and a React binding gains nothing
-  // from driving it (getSnapshot reads the lazily-recomputed formula on render, so
-  // no stale-frame risk). See README "No useSlot / useSignal".
+  // the guarded `useComputed`. useSignal never existed: the eager construction is a
+  // `ctx.computed(f).eager()`, and a React binding gains nothing from making it
+  // eager (getSnapshot reads the lazily-recomputed computed on render, so no
+  // stale-frame risk). See README "No useSlot / useSignal".
   assert.ok(true);
 });
 
@@ -139,7 +140,7 @@ test("unmount safety: external mutation after unmount does not throw", async () 
   const ctx = new Context();
   const a = ctx.source(1);
   function C() {
-    const v = useFormula(() => ctx.getCell(a) + 1, []);
+    const v = useComputed(() => ctx.getCell(a) + 1, []);
     return h("p", null, String(v));
   }
   const r = renderWith(ctx, h(C));
@@ -156,7 +157,7 @@ test("dispose on unmount: derived slot edges are torn down (microtask-deferred)"
   const ctx = new Context({ instrument: true });
   const a = ctx.source(1);
   function C() {
-    const v = useFormula(() => ctx.getCell(a) + 1, []);
+    const v = useComputed(() => ctx.getCell(a) + 1, []);
     return h("p", null, String(v));
   }
   const r = renderWith(ctx, h(C));
@@ -177,7 +178,7 @@ test("dispose on deps-change: the stale slot is disposed when deps move on", asy
   const key = ctx.source("a");
   function C() {
     const k = useLazily(key);
-    const v = useFormula(() => k + "!", [k]); // recreated when k changes
+    const v = useComputed(() => k + "!", [k]); // recreated when k changes
     return h("p", null, v);
   }
   const r = renderWith(ctx, h(C));
@@ -195,7 +196,7 @@ test("StrictMode: hooks survive the dev double-invoke mount without premature di
   const ctx = new Context();
   const a = ctx.source(1);
   function C() {
-    const v = useFormula(() => ctx.getCell(a) + 1, []);
+    const v = useComputed(() => ctx.getCell(a) + 1, []);
     return h("p", null, String(v));
   }
   // StrictMode double-invokes render + effects (setup → cleanup → setup) in dev.

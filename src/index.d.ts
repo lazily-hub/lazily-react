@@ -2,8 +2,8 @@ export {
   LazilyProvider,
   useLazilyContext,
   useLazily,
-  useCell,
-  useFormula,
+  useSource,
+  useComputed,
 } from "./hooks.js";
 
 export type { LazilyHandle } from "./bridge.js";

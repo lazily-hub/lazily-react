@@ -1,7 +1,7 @@
 {
   "name": "@lazily-hub/lazily-react",
   "version": "0.1.0",
-  "description": "React/Preact bindings for @lazily-hub/lazily-js: drive React state from lazily reactive SourceCell/FormulaCell handles via useSyncExternalStore. Glitch-free, equality-guarded re-renders.",
+  "description": "React/Preact bindings for @lazily-hub/lazily-js: drive React state from lazily reactive Source/Computed handles via useSyncExternalStore. Glitch-free, equality-guarded re-renders.",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -1,5 +1,5 @@
 import type { ReactNode, ReactElement } from "react";
-import type { Context, SourceCell, FormulaCell, SignalHandle } from "@lazily-hub/lazily-js/reactive";
+import type { Context, Source, Computed, SignalHandle } from "@lazily-hub/lazily-js/reactive";
 import type { LazilyHandle } from "./bridge.js";
 
 /** Provide a lazily reactive `Context` to the tree. */
@@ -18,21 +18,20 @@ export declare function useLazilyContext(): Context;
 export declare function useLazily<T>(handle: LazilyHandle<T>): T;
 
 /**
- * Component-local mutable source (a lazily `SourceCell`), like `useState`.
+ * Component-local mutable source (a lazily `Source`), like `useState`.
  * Returns `[value, setValue]`. `setValue` accepts a value or an updater
- * `(prev) => next`. The cell is disposed on real unmount (strict-mode-safe).
+ * `(prev) => next`. The source is disposed on real unmount (strict-mode-safe).
  */
-export declare function useCell<T>(
+export declare function useSource<T>(
   initial: T | (() => T),
 ): [T, (next: T | ((prev: T) => T)) => void];
 
 /**
- * Lazy derived value backed by a guarded `FormulaCell` (`ctx.formula`). Equal
+ * Lazy derived value backed by a guarded `Computed` (`ctx.computed`). Equal
  * recomputes suppress the re-render — the default (and only) derived hook under
- * the Cell kernel. Replaces the old `useReactiveMemo`; the unguarded `useSlot` is
- * deleted.
+ * the Cell kernel. The unguarded `useSlot` is deleted.
  */
-export declare function useFormula<T>(compute: () => T, deps?: unknown[]): T;
+export declare function useComputed<T>(compute: () => T, deps?: unknown[]): T;
 
 // Re-export lazily handle types for consumers.
-export type { SourceCell, FormulaCell, SignalHandle } from "@lazily-hub/lazily-js/reactive";
+export type { Source, Computed, SignalHandle } from "@lazily-hub/lazily-js/reactive";

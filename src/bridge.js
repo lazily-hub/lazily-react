@@ -2,10 +2,10 @@
 // `useSyncExternalStore` contract shared by React 18+ and Preact's `preact/compat`.
 //
 // lazily (see @lazily-hub/lazily-js `reactive.js`) exposes the Cell kernel
-// (#lzcellkernel): a `Cell<T, K>` genus over two value kinds —
-//   - SourceCell  (written from outside: `source(v)` / `source(v, policy)`)
-//   - FormulaCell (computed from upstream: `formula(f)`, guarded by default;
-//                  `formula(f).drive()` makes it eager — the retired `Signal`)
+// (#lzcellkernel) v2: bare-kind handles over two value kinds —
+//   - Source   (written from outside: `source(v)` / `source(v, policy)`)
+//   - Computed (computed from upstream: `computed(f)`, guarded always;
+//               `computed(f).eager()` makes it eager — the retired `Signal`)
 // plus the value-less `Effect` sink and the deprecated `SignalHandle` shape
 // (kept only for the thread-safe / async contexts, which still hand out signals).
 //
@@ -21,28 +21,28 @@
 // effects synchronously before `setCell`/`batch` returns, matching the
 // notify-then-read contract `useSyncExternalStore` expects.
 
-import { SourceCell, SignalHandle } from "@lazily-hub/lazily-js/reactive";
+import { Source, SignalHandle } from "@lazily-hub/lazily-js/reactive";
 
 /**
  * Read a lazily handle of any kind from `ctx`, dispatching on handle class.
  *
- * - `SignalHandle` → `ctx.getSignal` (reads the backing formula) — deprecated,
+ * - `SignalHandle` → `ctx.getSignal` (reads the backing computed) — deprecated,
  *   still handed out by the thread-safe / async contexts.
- * - `SourceCell`   → `ctx.getCell`
- * - `FormulaCell`  → `ctx.get` (covers `formula` and its `.drive()`n eager form,
- *   plus the deprecated unguarded `slot`/`computed`)
+ * - `Source`       → `ctx.getCell`
+ * - `Computed`     → `ctx.get` (covers `computed` and its `.eager()` eager form,
+ *   plus the deprecated `slot` alias, which is now the same guarded computed)
  *
- * Inside a tracked computation (an `effect`/`formula` body) the read also
+ * Inside a tracked computation (an `effect`/`computed` body) the read also
  * registers the dependency edge; outside one it is a plain read.
  *
  * @template T
  * @param {import("@lazily-hub/lazily-js/reactive").Context} ctx
- * @param {import("@lazily-hub/lazily-js/reactive").SourceCell<T> | import("@lazily-hub/lazily-js/reactive").FormulaCell<T> | import("@lazily-hub/lazily-js/reactive").SignalHandle<T>} handle
+ * @param {import("@lazily-hub/lazily-js/reactive").Source<T> | import("@lazily-hub/lazily-js/reactive").Computed<T> | import("@lazily-hub/lazily-js/reactive").SignalHandle<T>} handle
  * @returns {T}
  */
 export function readHandle(ctx, handle) {
   if (handle instanceof SignalHandle) return ctx.getSignal(handle);
-  if (handle instanceof SourceCell) return ctx.getCell(handle);
+  if (handle instanceof Source) return ctx.getCell(handle);
   return ctx.get(handle);
 }
 
@@ -54,15 +54,14 @@ export function readHandle(ctx, handle) {
  * effects flush synchronously on write, so `onChange` fires before the mutating
  * `setCell`/`batch` returns.
  *
- * Equality-guard semantics come from the handle itself:
- *   - a guarded `formula` whose recompute yields an equal value suppresses the
- *     effect run entirely (see `recomputeSlotNow` → `effectShouldRun` in lazily's
- *     `reactive.js`), so `onChange` is NOT called and React does not re-render;
- *   - a deprecated no-guard `slot`/`computed` always propagates, so `onChange`
- *     fires on every upstream invalidation regardless of whether the value changed.
+ * Equality-guard semantics come from the handle itself. Under the Cell kernel v2
+ * every cell is guarded: a `Source` suppresses an equal write, and a `Computed`
+ * whose recompute yields an equal value suppresses the effect run entirely (see
+ * `recomputeSlotNow` → `effectShouldRun` in lazily's `reactive.js`), so `onChange`
+ * is NOT called and React does not re-render.
  *
  * @param {import("@lazily-hub/lazily-js/reactive").Context} ctx
- * @param {import("@lazily-hub/lazily-js/reactive").SourceCell | import("@lazily-hub/lazily-js/reactive").FormulaCell | import("@lazily-hub/lazily-js/reactive").SignalHandle} handle
+ * @param {import("@lazily-hub/lazily-js/reactive").Source | import("@lazily-hub/lazily-js/reactive").Computed | import("@lazily-hub/lazily-js/reactive").SignalHandle} handle
  * @param {() => void} onChange React's re-render trigger from `useSyncExternalStore`.
  * @returns {() => void} unsubscribe — disposes the underlying effect (tears down
  *   the dependency edge and removes it from the effect queue).

@@ -7,8 +7,8 @@ export {
   LazilyProvider,
   useLazilyContext,
   useLazily,
-  useCell,
-  useFormula,
+  useSource,
+  useComputed,
 } from "./hooks.js";
 
 export { readHandle, createLazilySubscription } from "./bridge.js";

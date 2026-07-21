@@ -5,14 +5,14 @@
 // `react` (>=18) and `preact/compat` (>=10.16). We destructure from the default
 // import to avoid CJS named-export interop differences across bundlers/runtimes.
 //
-// The Cell kernel (#lzcellkernel) is the surface consumed here: `ctx.source` for a
-// SourceCell, `ctx.formula` for a guarded FormulaCell. Eager derived values are
-// intentionally NOT exposed: the eager construction is now a driven formula
-// (`ctx.formula(f).drive()`), and a React binding gains nothing from driving it —
-// React only renders on invalidation, and `getSnapshot` reads the
-// (lazily-recomputed-on-read) formula, so it always sees the fresh value with no
-// stale-frame risk. The one derived hook is therefore the guarded `useFormula`;
-// the old unguarded `useSlot` is deleted (design §9.4 step 6, zero call sites).
+// The Cell kernel (#lzcellkernel) v2 surface consumed here: `ctx.source` for a
+// Source, `ctx.computed` for a guarded Computed. Eager derived values are
+// intentionally NOT exposed: the eager construction is a `ctx.computed(f).eager()`,
+// and a React binding gains nothing from making it eager — React only renders on
+// invalidation, and `getSnapshot` reads the (lazily-recomputed-on-read) computed,
+// so it always sees the fresh value with no stale-frame risk. The one derived hook
+// is therefore the guarded `useComputed`; the old unguarded `useSlot` is deleted
+// (design §9.4 step 6, zero call sites).
 
 import React from "react";
 import { createLazilySubscription, readHandle } from "./bridge.js";
@@ -25,8 +25,8 @@ const LazilyContext = createContext(null);
 
 /**
  * Provide a lazily reactive `Context` to the tree. A `Context` owns the whole
- * reactive graph (Cell/Slot/Effect nodes); one at the app root is the common
- * pattern. Per-feature `Context`s are fine too.
+ * reactive graph (Source/Computed/Effect nodes); one at the app root is the
+ * common pattern. Per-feature `Context`s are fine too.
  *
  * @param {{ context: import("@lazily-hub/lazily-js/reactive").Context, children: import("react").ReactNode }} props
  */
@@ -107,7 +107,7 @@ function useLazilySubscription(ctx, handle) {
 
 /**
  * Subscribe (read-only) to an externally-created lazily handle of any kind.
- * Use this to read a handle owned outside React (e.g. a module-scoped cell). The
+ * Use this to read a handle owned outside React (e.g. a module-scoped source). The
  * handle's lifetime is the caller's responsibility — `useLazily` does NOT dispose
  * it on unmount; it only unsubscribes. Writes happen via `ctx.setCell` directly.
  *
@@ -122,17 +122,17 @@ export function useLazily(handle) {
 
 /**
  * Component-local mutable source. Like `useState`, but the value lives in a
- * lazily `SourceCell` (`ctx.source`) bound to the owning `Context`. Returns
+ * lazily `Source` (`ctx.source`) bound to the owning `Context`. Returns
  * `[value, setValue]`.
  *
- * `setValue` accepts a value or an updater `(prev) => next`. The cell is disposed
+ * `setValue` accepts a value or an updater `(prev) => next`. The source is disposed
  * on real unmount (strict-mode-safe) via `ctx.disposeCell`.
  *
  * @template T
  * @param {T | (() => T)} initial
  * @returns {[T, (next: T | ((prev: T) => T)) => void]}
  */
-export function useCell(initial) {
+export function useSource(initial) {
   const ctx = useLazilyContext();
   const ref = useRef(null);
   if (ref.current === null) {
@@ -158,30 +158,30 @@ export function useCell(initial) {
 const EMPTY = Object.freeze([]);
 
 /**
- * Lazy derived value backed by a guarded `FormulaCell` (`ctx.formula`). Equal
+ * Lazy derived value backed by a guarded `Computed` (`ctx.computed`). Equal
  * recomputes suppress the re-render (the subscribe effect never runs), so this is
  * the default — and only — choice for derived state under the Cell kernel. The
  * former unguarded `useSlot` is deleted (design §9.4 step 6).
  *
- * Creates a lazily formula and re-subscribes React to it. When `deps` change a new
- * formula is created and the stale one is disposed (strict-mode-safe). The latest
+ * Creates a lazily computed and re-subscribes React to it. When `deps` change a new
+ * computed is created and the stale one is disposed (strict-mode-safe). The latest
  * `compute` closure is always used via a ref, so a re-render with unchanged deps
  * still sees fresh captured values on the next invalidation.
  *
  * @template T
  * @param {() => T} compute
- * @param {unknown[]} [deps] dep list; the formula is recreated when these change.
+ * @param {unknown[]} [deps] dep list; the computed is recreated when these change.
  * @returns {T}
  */
-export function useFormula(compute, deps) {
+export function useComputed(compute, deps) {
   const ctx = useLazilyContext();
   const handleRef = useRef(null);
   const computeRef = useRef(compute);
-  computeRef.current = compute; // always latest closure; formula recomputes only on invalidation
+  computeRef.current = compute; // always latest closure; computed recomputes only on invalidation
   const depsArr = deps === undefined ? EMPTY : deps;
   const depsRef = useRef(depsArr);
   if (handleRef.current === null || !shallowEqualDeps(depsRef.current, depsArr)) {
-    handleRef.current = ctx.formula(() => computeRef.current());
+    handleRef.current = ctx.computed(() => computeRef.current());
     depsRef.current = depsArr;
   }
   const handle = handleRef.current;
