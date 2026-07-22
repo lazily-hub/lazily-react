@@ -1,22 +1,21 @@
 import type {
   Context,
+  ComputeOps,
   Source,
   Computed,
-  SignalHandle,
 } from "@lazily-hub/lazily-js/reactive";
 
 /** Any lazily source/derived handle (Cell kernel v2). */
 export type LazilyHandle<T = unknown> =
   | Source<T>
-  | Computed<T>
-  | SignalHandle<T>;
+  | Computed<T>;
 
 /**
  * Read any lazily handle from `ctx`, dispatching on handle class. Inside a
  * tracked computation the read also registers the dependency edge.
  */
 export declare function readHandle<T>(
-  ctx: Context,
+  ctx: ComputeOps,
   handle: LazilyHandle<T>,
 ): T;
 

@@ -66,9 +66,8 @@ There is intentionally **no `useSlot` and no `useSignal`**:
   and a React binding gains nothing from making it eager —
   React only renders on invalidation, and `getSnapshot` reads the
   (lazily-recomputed-on-read) computed, so it always sees the fresh value with no
-  stale-frame risk. (`useLazily` still *reads* externally-created `SignalHandle`s —
-  handed out by the thread-safe / async contexts — lazily-react just doesn't
-  create them.)
+stale-frame risk. `useLazily` reads externally-created `Source` and `Computed`
+handles without creating an eager wrapper.
 
 - **`useSource`** — component-local mutable source (a `Source` via `ctx.source`),
   returns `[value, setValue]` like `useState`. `setValue` accepts a value or
@@ -91,12 +90,12 @@ guard earns its keep when the compute returns a **fresh object** each invalidati
 ### Sharing handles across components
 
 `useSource` creates a component-local `Source`. To share state, create the source
-externally and read it with `useLazily`; write it via `ctx.setCell`:
+externally and read it with `useLazily`; write it via `ctx.set`:
 
 ```js
 const shared = ctx.source(0);
 // in any component: const v = useLazily(shared);
-// anywhere: ctx.setCell(shared, v + 1);
+// anywhere: ctx.set(shared, v + 1);
 ```
 
 ## How it works
@@ -105,10 +104,10 @@ const shared = ctx.source(0);
 React component
   └─ useSyncExternalStore(subscribe, getSnapshot)
        ├─ subscribe  = lazily effect that reads the handle (registers edge) + onChange
-       └─ getSnapshot = ctx.get/getCell/getSignal(handle)
+└─ getSnapshot = ctx.get(handle)
 ```
 
-- lazily effects flush **synchronously** before `setCell`/`batch` returns, matching
+- lazily effects flush **synchronously** before `set`/`batch` returns, matching
   the notify-then-read contract `useSyncExternalStore` expects.
 - Snapshot stability (required to avoid React's "getSnapshot should be cached"
   loop) comes for free: lazily caches node values and only changes the reference
@@ -123,8 +122,8 @@ The framework-agnostic adapter lives in `src/bridge.js` (`readHandle`,
 ## Node lifetime
 
 `useSource` disposes its `Source` and `useComputed` disposes its `Computed` on
-real unmount and on deps-change, via `ctx.disposeCell`/`ctx.disposeSlot` in
-`src/lazily-js/src/reactive.js`. Disposal is **strict-mode-safe**: it is deferred
+real unmount and on deps-change via each handle's canonical `dispose()` method.
+Disposal is **strict-mode-safe**: it is deferred
 one microtask and cancelled if React 18 dev's simulated remount
 (setup → cleanup → setup) re-subscribes the same handle, so the dev double-invoke
 never frees a handle that the second setup still uses. `useLazily` is read-only

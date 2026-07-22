@@ -109,7 +109,7 @@ function useLazilySubscription(ctx, handle) {
  * Subscribe (read-only) to an externally-created lazily handle of any kind.
  * Use this to read a handle owned outside React (e.g. a module-scoped source). The
  * handle's lifetime is the caller's responsibility — `useLazily` does NOT dispose
- * it on unmount; it only unsubscribes. Writes happen via `ctx.setCell` directly.
+ * it on unmount; it only unsubscribes. Writes happen via `ctx.set` directly.
  *
  * @template T
  * @param {import("./bridge.js").LazilyHandle<T>} handle
@@ -126,7 +126,7 @@ export function useLazily(handle) {
  * `[value, setValue]`.
  *
  * `setValue` accepts a value or an updater `(prev) => next`. The source is disposed
- * on real unmount (strict-mode-safe) via `ctx.disposeCell`.
+* on real unmount (strict-mode-safe) via `Source.dispose()`.
  *
  * @template T
  * @param {T | (() => T)} initial
@@ -140,13 +140,13 @@ export function useSource(initial) {
       typeof initial === "function" ? ctx.source(initial()) : ctx.source(initial);
   }
   const handle = ref.current;
-  useStableDispose(ctx, handle, (c, h) => c.disposeCell(h));
+  useStableDispose(ctx, handle, (_c, h) => h.dispose());
   const value = useLazilySubscription(ctx, handle);
   const setValue = useCallback(
     (next) => {
       const resolved =
         typeof next === "function" ? next(readHandle(ctx, handle)) : next;
-      ctx.setCell(handle, resolved);
+      ctx.set(handle, resolved);
     },
     [ctx, handle],
   );
@@ -169,7 +169,7 @@ const EMPTY = Object.freeze([]);
  * still sees fresh captured values on the next invalidation.
  *
  * @template T
- * @param {() => T} compute
+* @param {(compute: import("@lazily-hub/lazily-js/reactive").Compute) => T} compute
  * @param {unknown[]} [deps] dep list; the computed is recreated when these change.
  * @returns {T}
  */
@@ -181,10 +181,10 @@ export function useComputed(compute, deps) {
   const depsArr = deps === undefined ? EMPTY : deps;
   const depsRef = useRef(depsArr);
   if (handleRef.current === null || !shallowEqualDeps(depsRef.current, depsArr)) {
-    handleRef.current = ctx.computed(() => computeRef.current());
+    handleRef.current = ctx.computed((computeCtx) => computeRef.current(computeCtx));
     depsRef.current = depsArr;
   }
   const handle = handleRef.current;
-  useStableDispose(ctx, handle, (c, h) => c.disposeSlot(h));
+  useStableDispose(ctx, handle, (_c, h) => h.dispose());
   return useLazilySubscription(ctx, handle);
 }

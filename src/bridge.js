@@ -6,8 +6,7 @@
 //   - Source   (written from outside: `source(v)` / `source(v, policy)`)
 //   - Computed (computed from upstream: `computed(f)`, guarded always;
 //               `computed(f).eager()` makes it eager — the retired `Signal`)
-// plus the value-less `Effect` sink and the deprecated `SignalHandle` shape
-// (kept only for the thread-safe / async contexts, which still hand out signals).
+// plus the value-less `Effect` sink.
 //
 // `useSyncExternalStore(subscribe, getSnapshot)` needs two things:
 //   - subscribe(onChange): register interest, return an unsubscribe.
@@ -18,17 +17,13 @@
 //
 // The bridge registers a lazily `effect` whose body reads the handle (which
 // auto-registers the dependency edge) and then calls `onChange`. lazily flushes
-// effects synchronously before `setCell`/`batch` returns, matching the
+// effects synchronously before `set`/`batch` returns, matching the
 // notify-then-read contract `useSyncExternalStore` expects.
-
-import { Source, SignalHandle } from "@lazily-hub/lazily-js/reactive";
 
 /**
  * Read a lazily handle of any kind from `ctx`, dispatching on handle class.
  *
- * - `SignalHandle` → `ctx.getSignal` (reads the backing computed) — deprecated,
- *   still handed out by the thread-safe / async contexts.
- * - `Source`       → `ctx.getCell`
+* - `Source`       → `ctx.get`
  * - `Computed`     → `ctx.get` (covers `computed` and its `.eager()` eager form,
  *   plus the deprecated `slot` alias, which is now the same guarded computed)
  *
@@ -36,13 +31,11 @@ import { Source, SignalHandle } from "@lazily-hub/lazily-js/reactive";
  * registers the dependency edge; outside one it is a plain read.
  *
  * @template T
- * @param {import("@lazily-hub/lazily-js/reactive").Context} ctx
- * @param {import("@lazily-hub/lazily-js/reactive").Source<T> | import("@lazily-hub/lazily-js/reactive").Computed<T> | import("@lazily-hub/lazily-js/reactive").SignalHandle<T>} handle
+* @param {import("@lazily-hub/lazily-js/reactive").ComputeOps} ctx
+* @param {import("@lazily-hub/lazily-js/reactive").Source<T> | import("@lazily-hub/lazily-js/reactive").Computed<T>} handle
  * @returns {T}
  */
 export function readHandle(ctx, handle) {
-  if (handle instanceof SignalHandle) return ctx.getSignal(handle);
-  if (handle instanceof Source) return ctx.getCell(handle);
   return ctx.get(handle);
 }
 
@@ -52,7 +45,7 @@ export function readHandle(ctx, handle) {
  * Creates a lazily effect that (a) reads the handle — registering the dependency
  * edge — and (b) calls `onChange` whenever the handle's value invalidates. lazily
  * effects flush synchronously on write, so `onChange` fires before the mutating
- * `setCell`/`batch` returns.
+ * `set`/`batch` returns.
  *
  * Equality-guard semantics come from the handle itself. Under the Cell kernel v2
  * every cell is guarded: a `Source` suppresses an equal write, and a `Computed`
@@ -61,7 +54,7 @@ export function readHandle(ctx, handle) {
  * is NOT called and React does not re-render.
  *
  * @param {import("@lazily-hub/lazily-js/reactive").Context} ctx
- * @param {import("@lazily-hub/lazily-js/reactive").Source | import("@lazily-hub/lazily-js/reactive").Computed | import("@lazily-hub/lazily-js/reactive").SignalHandle} handle
+* @param {import("@lazily-hub/lazily-js/reactive").Source | import("@lazily-hub/lazily-js/reactive").Computed} handle
  * @param {() => void} onChange React's re-render trigger from `useSyncExternalStore`.
  * @returns {() => void} unsubscribe — disposes the underlying effect (tears down
  *   the dependency edge and removes it from the effect queue).
@@ -73,11 +66,11 @@ export function createLazilySubscription(ctx, handle, onChange) {
   // the edge and materializes the value but skips the notification; React reads
   // the initial value via getSnapshot separately.
   let initialized = false;
-  const eff = ctx.effect(() => {
-    readHandle(ctx, handle); // always: register dependency edge + read current value
+  const eff = ctx.effect((compute) => {
+    readHandle(compute, handle); // always: register dependency edge + read current value
     if (initialized) onChange();
     initialized = true;
     return null;
   });
-  return () => ctx.disposeEffect(eff);
+  return () => eff.dispose();
 }

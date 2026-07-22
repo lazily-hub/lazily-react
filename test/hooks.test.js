@@ -82,13 +82,13 @@ test("useComputed: recomputes and re-renders when upstream changes", async () =>
   const ctx = new Context();
   const a = ctx.source(2);
   function C() {
-    const doubled = useComputed(() => ctx.getCell(a) * 2, []);
+    const doubled = useComputed((compute) => compute.get(a) * 2, []);
     return h("p", null, String(doubled));
   }
   const r = renderWith(ctx, h(C));
   assert.equal(textOf(r), "4");
 
-  await flush(() => ctx.setCell(a, 3));
+  await flush(() => ctx.set(a, 3));
   assert.equal(textOf(r), "6");
 });
 
@@ -101,14 +101,14 @@ test("useComputed: structurally-equal recompute suppresses the re-render", async
     // Fresh object each recompute; the guarded computed's deep-equality guard
     // suppresses at the lazily level, so onChange is never called and React never
     // re-checks.
-    const parity = useComputed(() => ({ n: ctx.getCell(a) % 2 }), []);
+    const parity = useComputed((compute) => ({ n: compute.get(a) % 2 }), []);
     return h("p", null, String(parity.n));
   }
   const r = renderWith(ctx, h(C));
   const initialRenders = renders;
   assert.equal(textOf(r), "1");
 
-  await flush(() => ctx.setCell(a, 3)); // { n: 1 } → { n: 1 }, equal
+  await flush(() => ctx.set(a, 3)); // { n: 1 } → { n: 1 }, equal
   assert.equal(renders, initialRenders, "no re-render: computed guard suppressed propagation");
   assert.equal(textOf(r), "1");
 });
@@ -132,7 +132,7 @@ test("useLazily: subscribes to an externally-created cell handle", async () => {
   const r = renderWith(ctx, h(C));
   assert.equal(textOf(r), "x");
 
-  await flush(() => ctx.setCell(shared, "y"));
+  await flush(() => ctx.set(shared, "y"));
   assert.equal(textOf(r), "y");
 });
 
@@ -140,7 +140,7 @@ test("unmount safety: external mutation after unmount does not throw", async () 
   const ctx = new Context();
   const a = ctx.source(1);
   function C() {
-    const v = useComputed(() => ctx.getCell(a) + 1, []);
+    const v = useComputed((compute) => compute.get(a) + 1, []);
     return h("p", null, String(v));
   }
   const r = renderWith(ctx, h(C));
@@ -149,7 +149,7 @@ test("unmount safety: external mutation after unmount does not throw", async () 
   await assert.doesNotReject(async () => {
     // Mutating after the subscribe effect was torn down must not throw and must
     // not leak notifications into React.
-    await flush(() => ctx.setCell(a, 99));
+    await flush(() => ctx.set(a, 99));
   });
 });
 
@@ -157,14 +157,14 @@ test("dispose on unmount: derived slot edges are torn down (microtask-deferred)"
   const ctx = new Context({ instrument: true });
   const a = ctx.source(1);
   function C() {
-    const v = useComputed(() => ctx.getCell(a) + 1, []);
+    const v = useComputed((compute) => compute.get(a) + 1, []);
     return h("p", null, String(v));
   }
   const r = renderWith(ctx, h(C));
   const before = ctx.instrumentationSnapshot().dependencyEdgesRemoved;
 
   // Wrap unmount in act so the passive-effect cleanup flushes; the strict-mode-safe
-  // dispose then defers disposeSlot by one further microtask.
+  // dispose then defers handle disposal by one further microtask.
   await act(async () => r.unmount());
   await drainMicrotask();
 
@@ -185,7 +185,7 @@ test("dispose on deps-change: the stale slot is disposed when deps move on", asy
   assert.equal(textOf(r), "a!");
 
   const before = ctx.instrumentationSnapshot().dependencyEdgesRemoved;
-  await flush(() => ctx.setCell(key, "b")); // k changes → deps change → new slot
+  await flush(() => ctx.set(key, "b")); // k changes → deps change → new slot
   assert.equal(textOf(r), "b!");
   await drainMicrotask();
   const after = ctx.instrumentationSnapshot().dependencyEdgesRemoved;
@@ -196,7 +196,7 @@ test("StrictMode: hooks survive the dev double-invoke mount without premature di
   const ctx = new Context();
   const a = ctx.source(1);
   function C() {
-    const v = useComputed(() => ctx.getCell(a) + 1, []);
+    const v = useComputed((compute) => compute.get(a) + 1, []);
     return h("p", null, String(v));
   }
   // StrictMode double-invokes render + effects (setup → cleanup → setup) in dev.
@@ -206,7 +206,7 @@ test("StrictMode: hooks survive the dev double-invoke mount without premature di
   );
   assert.equal(textOf(r), "2", "value correct after the simulated remount");
 
-  await flush(() => ctx.setCell(a, 5)); // proves the slot is still alive + subscribed
+  await flush(() => ctx.set(a, 5)); // proves the slot is still alive + subscribed
   assert.equal(textOf(r), "6");
 
   r.unmount();

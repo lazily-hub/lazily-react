@@ -1,5 +1,5 @@
 import type { ReactNode, ReactElement } from "react";
-import type { Context, Source, Computed, SignalHandle } from "@lazily-hub/lazily-js/reactive";
+import type { Context, Source, Computed } from "@lazily-hub/lazily-js/reactive";
 import type { LazilyHandle } from "./bridge.js";
 
 /** Provide a lazily reactive `Context` to the tree. */
@@ -31,7 +31,10 @@ export declare function useSource<T>(
  * recomputes suppress the re-render — the default (and only) derived hook under
  * the Cell kernel. The unguarded `useSlot` is deleted.
  */
-export declare function useComputed<T>(compute: () => T, deps?: unknown[]): T;
+export declare function useComputed<T>(
+  compute: (compute: import("@lazily-hub/lazily-js/reactive").Compute) => T,
+  deps?: unknown[],
+): T;
 
 // Re-export lazily handle types for consumers.
-export type { Source, Computed, SignalHandle } from "@lazily-hub/lazily-js/reactive";
+export type { Source, Computed } from "@lazily-hub/lazily-js/reactive";

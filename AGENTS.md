@@ -7,11 +7,9 @@ adapter over the lazily Cell kernel v2 (`Source` / `Computed` / `Effect`,
 ## lazily-js dependency
 
 The `@lazily-hub/lazily-js` devDependency is `file:../lazily-js` — tests run
-against the **local** sibling build (currently 0.25.0, the Cell-kernel v2 release
-at `e42e93e`), which is UNPUBLISHED. The `peerDependencies` range is `^0.25.0`
-(the first kernel version). Do not "fix" the devDependency to a published range:
-the v2 kernel surface (`source`/`computed`/`Source`/`Computed`/`.eager()`) is not
-on npm yet. `npm install` re-links the symlink.
+against the local sibling build (currently 0.27.0). The peer dependency starts
+at `^0.27.0`, the source-first async API release. Keep the devDependency local so
+binding tests exercise the sibling checkout; `npm install` re-links the symlink.
 
 ## Commit & Push
 
@@ -46,15 +44,14 @@ There is intentionally **no `useSignal`**. The eager construction is now
 `ctx.computed(f).eager()`, and a React binding gains nothing from making it eager:
 React only renders on invalidation, and `getSnapshot` reads the
 (lazily-recomputed-on-read) computed, so it always sees the fresh value with no
-stale-frame risk. (`useLazily` still reads externally-created `SignalHandle`s —
-handed out by the thread-safe / async contexts — lazily-react just doesn't create
-them.)
+stale-frame risk. `useLazily` reads externally-created `Source` and `Computed`
+handles without creating an eager wrapper.
 
 ## Node lifetime
 
 `useSource` disposes its `Source` and `useComputed` disposes its `Computed` on
-real unmount and on deps-change, via `ctx.disposeCell`/`ctx.disposeSlot`
-(`src/lazily-js/src/reactive.js`). Disposal is **strict-mode-safe**: it is
+real unmount and on deps-change via each handle's canonical `dispose()` method.
+Disposal is **strict-mode-safe**: it is
 deferred one microtask and cancelled if React 18 dev's simulated remount
 (setup → cleanup → setup) re-subscribes the same handle. `useLazily` is read-only
 and does NOT dispose its externally-owned handle.
