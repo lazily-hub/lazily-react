@@ -1,6 +1,7 @@
 # @lazily-hub/lazily-react
 
-React / Preact bindings for [`@lazily-hub/lazily-js`](../lazily-js) — drive React
+React / Preact bindings for
+[`@lazily-hub/lazily-js`](https://github.com/lazily-hub/lazily-js) — drive React
 state from the lazily Cell kernel (`Source` / `Computed`) via
 `useSyncExternalStore`. Glitch-free, equality-guarded re-renders.
 
@@ -135,6 +136,42 @@ and does NOT dispose its externally-owned handle (the caller manages its lifetim
 make check   # build (node --check) + node:test
 npm test     # node --test test/*.test.js
 ```
+
+## The lazily family
+
+lazily is one reactive kernel — `Source` / `Computed` / `Effect`, keyed
+collections, state charts, CRDTs, and a distributed plane — implemented natively
+in each language and held to a single cross-language contract:
+
+- [`lazily-spec`](https://github.com/lazily-hub/lazily-spec) — the wire protocol,
+  the generated feature matrix, and the conformance corpus every binding replays.
+- [`lazily-formal`](https://github.com/lazily-hub/lazily-formal) — the Lean 4
+  formal model the bindings share.
+
+**`lazily-react` is not one of the language bindings.** It is a thin React /
+Preact adapter layered over the JavaScript binding: `@lazily-hub/lazily-react`
+owns only the hooks (`useSource`, `useComputed`, `useLazily`, `LazilyProvider`)
+and the `useSyncExternalStore` bridge, while every reactive primitive, CRDT, and
+wire type comes from
+[`@lazily-hub/lazily-js`](https://github.com/lazily-hub/lazily-js). Conformance
+against `lazily-spec` is `lazily-js`'s job, not this package's.
+
+| repo | language |
+|---|---|
+| [`lazily-rs`](https://github.com/lazily-hub/lazily-rs) | Rust — the reference implementation |
+| [`lazily-py`](https://github.com/lazily-hub/lazily-py) | Python |
+| [`lazily-go`](https://github.com/lazily-hub/lazily-go) | Go |
+| [`lazily-kt`](https://github.com/lazily-hub/lazily-kt) | Kotlin / JVM |
+| [`lazily-js`](https://github.com/lazily-hub/lazily-js) | JavaScript / TypeScript — the package this one layers over |
+| [`lazily-cs`](https://github.com/lazily-hub/lazily-cs) | C# / .NET |
+| [`lazily-cpp`](https://github.com/lazily-hub/lazily-cpp) | C++ |
+| [`lazily-zig`](https://github.com/lazily-hub/lazily-zig) | Zig |
+| [`lazily-dart`](https://github.com/lazily-hub/lazily-dart) | Dart / Flutter |
+| **`lazily-react`** | React / Preact over `lazily-js` — you are here |
+
+Per-binding feature parity is tracked in the `coverage.json`-generated matrix in
+[`lazily-spec`](https://github.com/lazily-hub/lazily-spec); read it there rather
+than any hand copy.
 
 ## License
 
