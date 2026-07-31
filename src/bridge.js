@@ -23,7 +23,7 @@
 /**
  * Read a lazily handle of any kind from `ctx`, dispatching on handle class.
  *
-* - `Source`       → `ctx.get`
+ * - `Source`       → `ctx.get`
  * - `Computed`     → `ctx.get` (covers `computed` and its `.eager()` eager form,
  *   plus the deprecated `slot` alias, which is now the same guarded computed)
  *
@@ -31,8 +31,8 @@
  * registers the dependency edge; outside one it is a plain read.
  *
  * @template T
-* @param {import("@lazily-hub/lazily-js/reactive").ComputeOps} ctx
-* @param {import("@lazily-hub/lazily-js/reactive").Source<T> | import("@lazily-hub/lazily-js/reactive").Computed<T>} handle
+ * @param {import("@lazily-hub/lazily-js/reactive").ComputeOps} ctx
+ * @param {import("@lazily-hub/lazily-js/reactive").Source<T> | import("@lazily-hub/lazily-js/reactive").Computed<T>} handle
  * @returns {T}
  */
 export function readHandle(ctx, handle) {
@@ -54,7 +54,7 @@ export function readHandle(ctx, handle) {
  * is NOT called and React does not re-render.
  *
  * @param {import("@lazily-hub/lazily-js/reactive").Context} ctx
-* @param {import("@lazily-hub/lazily-js/reactive").Source | import("@lazily-hub/lazily-js/reactive").Computed} handle
+ * @param {import("@lazily-hub/lazily-js/reactive").Source | import("@lazily-hub/lazily-js/reactive").Computed} handle
  * @param {() => void} onChange React's re-render trigger from `useSyncExternalStore`.
  * @returns {() => void} unsubscribe — disposes the underlying effect (tears down
  *   the dependency edge and removes it from the effect queue).

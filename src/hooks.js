@@ -41,9 +41,7 @@ export function LazilyProvider({ context, children }) {
 export function useLazilyContext() {
   const ctx = useContext(LazilyContext);
   if (ctx === null || ctx === undefined) {
-    throw new Error(
-      "lazily-react: useLazily hooks require a <LazilyProvider context={ctx}>.",
-    );
+    throw new Error("lazily-react: useLazily hooks require a <LazilyProvider context={ctx}>.");
   }
   return ctx;
 }
@@ -126,7 +124,7 @@ export function useLazily(handle) {
  * `[value, setValue]`.
  *
  * `setValue` accepts a value or an updater `(prev) => next`. The source is disposed
-* on real unmount (strict-mode-safe) via `Source.dispose()`.
+ * on real unmount (strict-mode-safe) via `Source.dispose()`.
  *
  * @template T
  * @param {T | (() => T)} initial
@@ -136,16 +134,14 @@ export function useSource(initial) {
   const ctx = useLazilyContext();
   const ref = useRef(null);
   if (ref.current === null) {
-    ref.current =
-      typeof initial === "function" ? ctx.source(initial()) : ctx.source(initial);
+    ref.current = typeof initial === "function" ? ctx.source(initial()) : ctx.source(initial);
   }
   const handle = ref.current;
   useStableDispose(ctx, handle, (_c, h) => h.dispose());
   const value = useLazilySubscription(ctx, handle);
   const setValue = useCallback(
     (next) => {
-      const resolved =
-        typeof next === "function" ? next(readHandle(ctx, handle)) : next;
+      const resolved = typeof next === "function" ? next(readHandle(ctx, handle)) : next;
       ctx.set(handle, resolved);
     },
     [ctx, handle],
@@ -169,7 +165,7 @@ const EMPTY = Object.freeze([]);
  * still sees fresh captured values on the next invalidation.
  *
  * @template T
-* @param {(compute: import("@lazily-hub/lazily-js/reactive").Compute) => T} compute
+ * @param {(compute: import("@lazily-hub/lazily-js/reactive").Compute) => T} compute
  * @param {unknown[]} [deps] dep list; the computed is recreated when these change.
  * @returns {T}
  */

@@ -15,12 +15,7 @@ import React from "react";
 import TestRenderer from "react-test-renderer";
 
 import { Context } from "@lazily-hub/lazily-js/reactive";
-import {
-  LazilyProvider,
-  useSource,
-  useComputed,
-  useLazily,
-} from "../src/hooks.js";
+import { LazilyProvider, useSource, useComputed, useLazily } from "../src/hooks.js";
 
 const { createElement: h } = React;
 const { act } = TestRenderer;

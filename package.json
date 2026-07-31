@@ -31,17 +31,22 @@
   ],
   "scripts": {
     "build": "node --check src/index.js && node --check src/bridge.js && node --check src/hooks.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write ."
   },
   "peerDependencies": {
     "@lazily-hub/lazily-js": "^0.27.0",
     "react": ">=18.0.0"
   },
   "peerDependenciesMeta": {
-    "react": { "optional": true }
+    "react": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@lazily-hub/lazily-js": "file:../lazily-js",
+    "prettier": "3.9.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-test-renderer": "^18.3.1"

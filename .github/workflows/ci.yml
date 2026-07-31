@@ -1,0 +1,76 @@
+name: CI
+
+# #lazilyreactworkflow. This binding had NO workflow at all — the only lazily
+# binding in that state. `make check` ran build and tests on a laptop and nothing
+# whatsoever verified a push, which is a strictly larger gap than the missing
+# formatting floor that surfaced it.
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        # Run from the package dir so the `file:../lazily-js` dev dependency
+        # resolves to the sibling checked out beside it.
+        working-directory: lazily-react
+    steps:
+      # Check out into a subdirectory so the sibling `../lazily-js` can live
+      # beside it — `actions/checkout` cannot write above $GITHUB_WORKSPACE.
+      - name: Checkout lazily-react
+        uses: actions/checkout@v4
+        with:
+          path: lazily-react
+
+      # devDependencies carries `"@lazily-hub/lazily-js": "file:../lazily-js"`,
+      # so the sibling is not optional: without it `npm install` cannot resolve
+      # the dependency and every test that imports lazily is untestable. Same
+      # sibling-checkout shape the other bindings use for ../lazily-spec.
+      - name: Checkout lazily-js (sibling)
+        uses: actions/checkout@v4
+        with:
+          repository: lazily-hub/lazily-js
+          path: lazily-js
+
+      # A checkout that succeeded but landed in the wrong place is invisible
+      # until something fails confusingly later. Assert the path the package
+      # actually resolves.
+      - name: Assert the lazily-js sibling is present
+        run: |
+          test -f ../lazily-js/package.json || { echo "::error::../lazily-js missing — the file: dependency cannot resolve and the suite would not exercise lazily at all"; exit 1; }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      # One step per gate, in `make check` order — NOT a single `make check`.
+      # A monolithic step is opaque to the reachability guard in the last step:
+      # it can only report the whole thing as reached, so a gate could quietly
+      # stop running without any step name changing here. Split like this, the
+      # guard prints one line per gate and a dropped one is visible.
+
+      - name: Format gate (make fmt)
+        run: make fmt
+
+      - name: Build (syntax check every entry point)
+        run: make build
+
+      - name: Test
+        run: make test
+
+      # The gate that keeps every step above honest (#lzcheckcireachguard): it
+      # compares `make check`'s prerequisite closure against the run: bodies in
+      # this file and fails on any target CI does not reach.
+      - name: CI-reachability guard (#lzcheckcireachguard)
+        run: make ci-reach
