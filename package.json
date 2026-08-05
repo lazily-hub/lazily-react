@@ -31,6 +31,7 @@
   ],
   "scripts": {
     "build": "node --check src/index.js && node --check src/bridge.js && node --check src/hooks.js",
+    "typecheck": "tsc -p tsconfig.json",
     "test": "node --test test/*.test.js",
     "format": "prettier --check .",
     "format:fix": "prettier --write ."
@@ -46,10 +47,12 @@
   },
   "devDependencies": {
     "@lazily-hub/lazily-js": "file:../lazily-js",
+    "@types/react": "^18.3.0",
     "prettier": "3.9.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-test-renderer": "^18.3.1"
+    "react-test-renderer": "^18.3.1",
+    "typescript": "^5.6.0"
   },
   "publishConfig": {
     "access": "public",

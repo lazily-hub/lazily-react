@@ -1,0 +1,20 @@
+// Declaration-only typecheck gate (`npm run typecheck`).
+//
+// This package publishes hand-written `.d.ts` files beside plain JavaScript.
+// `npm run build` proves only that the JavaScript parses, so declaration errors
+// need a separate program that checks the exact files consumers receive.
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "target": "es2022",
+    "lib": ["es2022", "dom", "esnext.disposable"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "skipLibCheck": false,
+    "allowJs": false,
+    "checkJs": false,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.d.ts"]
+}

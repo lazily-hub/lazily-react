@@ -66,6 +66,26 @@ jobs:
       - name: Build (syntax check every entry point)
         run: make build
 
+      # The package publishes hand-written declarations. `node --check` proves
+      # only that JavaScript parses, so run the strict declaration-only program
+      # with library checking enabled.
+      - name: Typecheck shipped declarations
+        run: |
+          npm run typecheck || {
+            echo "::error::shipped .d.ts do not typecheck"
+            exit 1
+          }
+
+          # TypeScript exits 0 for an empty program. Prove the include matched
+          # at least one shipped declaration rather than trusting that vacuous
+          # success.
+          files="$(./node_modules/.bin/tsc -p tsconfig.json --listFiles | grep -c "$PWD/src/" || true)"
+          echo "typechecked $files shipped declaration files"
+          [ "$files" -gt 0 ] || {
+            echo "::error::typecheck program contained no src/ declarations — it checked nothing"
+            exit 1
+          }
+
       - name: Test
         run: make test
 
