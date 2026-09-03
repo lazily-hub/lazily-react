@@ -6,3 +6,8 @@
 export { LazilyProvider, useLazilyContext, useLazily, useSource, useComputed } from "./hooks.js";
 
 export { readHandle, createLazilySubscription } from "./bridge.js";
+export {
+  useLatestDurableEntry,
+  useLatestDurableGeneration,
+  useLatestDurableSnapshot,
+} from "./latest-durable-projection.js";

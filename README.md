@@ -55,6 +55,9 @@ export function App() {
 | `useSource(initial)`| `ctx.source` (`Source`) | src | yes (on write)  |
 | `useComputed(fn, deps)` | `ctx.computed` (`Computed`) | yes | yes        |
 | `useLazily(handle)`| any (read-only)         | —     | from handle     |
+| `useLatestDurableSnapshot(projection)` | latest-durable snapshot reader | yes | yes |
+| `useLatestDurableEntry(projection, key)` | one latest-durable key reader | yes | yes |
+| `useLatestDurableGeneration(projection)` | actor generation fence reader | yes | yes |
 
 There is intentionally **no `useSlot` and no `useSignal`**:
 
@@ -98,6 +101,29 @@ const shared = ctx.source(0);
 // in any component: const v = useLazily(shared);
 // anywhere: ctx.set(shared, v + 1);
 ```
+
+## Latest durable projection
+
+The `latest-durable-projection` entry point adapts lazily-js's
+`LatestDurableProjection` to React. The snapshot, keyed-entry, and generation
+hooks subscribe to the projection's memoized readers, so a component observes
+the latest desired value, in-flight claim, monotone durable frontier, and
+reconnect generation without owning the state machine. Commands remain on the
+projection itself and therefore preserve its per-key single-flight ordering.
+
+```jsx
+const projection = new LatestDurableProjection(ctx, 1);
+
+function SaveStatus({ documentId }) {
+  const state = useLatestDurableEntry(projection, documentId);
+  return <span>{state?.inflight ? "saving" : state?.desired ? "pending" : "saved"}</span>;
+}
+```
+
+The integration suite replays lazily-spec v0.38.0's canonical
+`egress/latest_durable_projection.json` fixture through a mounted React
+subscriber. The state machine corresponds to
+`LazilyFormal.LatestDurableProjectionCore` in lazily-formal v0.38.1.
 
 ## How it works
 

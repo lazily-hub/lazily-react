@@ -40,12 +40,20 @@ jobs:
           repository: lazily-hub/lazily-js
           path: lazily-js
 
+      - name: Checkout lazily-spec (sibling)
+        uses: actions/checkout@v4
+        with:
+          repository: lazily-hub/lazily-spec
+          ref: v0.38.0
+          path: lazily-spec
+
       # A checkout that succeeded but landed in the wrong place is invisible
       # until something fails confusingly later. Assert the path the package
       # actually resolves.
       - name: Assert the lazily-js sibling is present
         run: |
           test -f ../lazily-js/package.json || { echo "::error::../lazily-js missing — the file: dependency cannot resolve and the suite would not exercise lazily at all"; exit 1; }
+          test -f ../lazily-spec/conformance/egress/latest_durable_projection.json || { echo "::error::canonical latest-durable fixture missing from ../lazily-spec"; exit 1; }
 
       - uses: actions/setup-node@v4
         with:

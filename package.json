@@ -1,6 +1,6 @@
 {
   "name": "@lazily-hub/lazily-react",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "React/Preact bindings for @lazily-hub/lazily-js: drive React state from lazily reactive Source/Computed handles via useSyncExternalStore. Glitch-free, equality-guarded re-renders.",
   "license": "MIT",
   "repository": {
@@ -22,6 +22,10 @@
     "./hooks": {
       "types": "./src/hooks.d.ts",
       "default": "./src/hooks.js"
+    },
+    "./latest-durable-projection": {
+      "types": "./src/latest-durable-projection.d.ts",
+      "default": "./src/latest-durable-projection.js"
     }
   },
   "sideEffects": false,
@@ -30,14 +34,14 @@
     "README.md"
   ],
   "scripts": {
-    "build": "node --check src/index.js && node --check src/bridge.js && node --check src/hooks.js",
+    "build": "node --check src/index.js && node --check src/bridge.js && node --check src/hooks.js && node --check src/latest-durable-projection.js",
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test test/*.test.js",
     "format": "prettier --check .",
     "format:fix": "prettier --write ."
   },
   "peerDependencies": {
-    "@lazily-hub/lazily-js": "^0.27.0",
+    "@lazily-hub/lazily-js": "^0.32.0",
     "react": ">=18.0.0"
   },
   "peerDependenciesMeta": {

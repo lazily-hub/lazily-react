@@ -2,3 +2,8 @@ export { LazilyProvider, useLazilyContext, useLazily, useSource, useComputed } f
 
 export type { LazilyHandle } from "./bridge.js";
 export { readHandle, createLazilySubscription } from "./bridge.js";
+export {
+  useLatestDurableEntry,
+  useLatestDurableGeneration,
+  useLatestDurableSnapshot,
+} from "./latest-durable-projection.js";
