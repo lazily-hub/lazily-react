@@ -2,7 +2,7 @@
   "name": "@lazily-hub/lazily-react",
   "version": "0.2.0",
   "description": "React/Preact bindings for @lazily-hub/lazily-js: drive React state from lazily reactive Source/Computed handles via useSyncExternalStore. Glitch-free, equality-guarded re-renders.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/lazily-hub/lazily-react.git"
@@ -31,7 +31,9 @@
   "sideEffects": false,
   "files": [
     "src",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "build": "node --check src/index.js && node --check src/bridge.js && node --check src/hooks.js && node --check src/latest-durable-projection.js",
