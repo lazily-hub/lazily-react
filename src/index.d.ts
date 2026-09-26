@@ -2,6 +2,7 @@ export { LazilyProvider, useLazilyContext, useLazily, useSource, useComputed } f
 
 export type { LazilyHandle } from "./bridge.js";
 export { readHandle, createLazilySubscription } from "./bridge.js";
+export * from "./durable-client.js";
 export {
   useLatestDurableEntry,
   useLatestDurableGeneration,

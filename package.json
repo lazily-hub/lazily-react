@@ -26,6 +26,10 @@
     "./latest-durable-projection": {
       "types": "./src/latest-durable-projection.d.ts",
       "default": "./src/latest-durable-projection.js"
+    },
+    "./durable-client": {
+      "types": "./src/durable-client.d.ts",
+      "default": "./src/durable-client.js"
     }
   },
   "sideEffects": false,
@@ -36,14 +40,14 @@
     "NOTICE"
   ],
   "scripts": {
-    "build": "node --check src/index.js && node --check src/bridge.js && node --check src/hooks.js && node --check src/latest-durable-projection.js",
+    "build": "node --check src/index.js && node --check src/bridge.js && node --check src/hooks.js && node --check src/latest-durable-projection.js && node --check src/durable-client.js",
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test test/*.test.js",
     "format": "prettier --check .",
     "format:fix": "prettier --write ."
   },
   "peerDependencies": {
-    "@lazily-hub/lazily-js": "^0.32.0",
+    "@lazily-hub/lazily-js": "^0.33.0",
     "react": ">=18.0.0"
   },
   "peerDependenciesMeta": {
