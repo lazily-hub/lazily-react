@@ -1,6 +1,6 @@
 {
   "name": "@lazily-hub/lazily-react",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "React/Preact bindings for @lazily-hub/lazily-js: drive React state from lazily reactive Source/Computed handles via useSyncExternalStore. Glitch-free, equality-guarded re-renders.",
   "license": "Apache-2.0",
   "repository": {
@@ -47,7 +47,7 @@
     "format:fix": "prettier --write ."
   },
   "peerDependencies": {
-    "@lazily-hub/lazily-js": "^0.33.0",
+    "@lazily-hub/lazily-js": "^0.34.0",
     "react": ">=18.0.0"
   },
   "peerDependenciesMeta": {
