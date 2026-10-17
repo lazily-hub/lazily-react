@@ -156,12 +156,9 @@ one microtask and cancelled if React 18 dev's simulated remount
 never frees a handle that the second setup still uses. `useLazily` is read-only
 and does NOT dispose its externally-owned handle (the caller manages its lifetime).
 
-## Develop
+## Contributing
 
-```bash
-make check   # build (node --check) + node:test
-npm test     # node --test test/*.test.js
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for build and test commands.
 
 ## The lazily family
 
